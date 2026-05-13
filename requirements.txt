@@ -6,3 +6,5 @@ joblib
 streamlit
 plotly
 requests
+gunicorn
+streamlit-autorefresh
