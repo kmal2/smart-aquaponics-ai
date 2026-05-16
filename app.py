@@ -110,7 +110,7 @@ else:
 # =========================
 col1, col2, col3 = st.columns(3)
 
-col1.metric("🌾 Yield Prediction", f"{yield_prediction:.2f} Ton")
+col1.metric("🌱 Plant Health Score", f"{yield_prediction:.2f}/10")
 col2.metric("⚠ Risk Level", risk_prediction)
 col3.metric("📡 System Status", "ONLINE")
 
@@ -122,7 +122,7 @@ st.markdown("---")
 fig = go.Figure(go.Indicator(
     mode="gauge+number",
     value=yield_prediction,
-    title={'text': "Yield Prediction"},
+   title={'text': "Plant Health Score"},
     gauge={'axis': {'range': [0, max(10, float(yield_prediction) * 1.2)]}}
 ))
 
@@ -220,7 +220,7 @@ st.dataframe(pd.DataFrame({
     "Humidity": [humidity],
     "pH": [ph],
     "Rainfall": [rainfall],
-    "Yield": [yield_prediction],
+   "Plant Health Score": [yield_prediction],
     "Risk": [risk_prediction]
 }), use_container_width=True)
 
