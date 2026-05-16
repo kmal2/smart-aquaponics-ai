@@ -124,3 +124,30 @@ fig = go.Figure(go.Indicator(
 ))
 
 st.plotly_chart(fig)
+col1, col2 = st.columns(2)
+
+with col1:
+
+    humidity_fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=humidity,
+        title={'text': "Humidity %"},
+        gauge={
+            'axis': {'range': [0, 100]}
+        }
+    ))
+
+    st.plotly_chart(humidity_fig)
+
+with col2:
+
+    ph_fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=ph,
+        title={'text': "pH Level"},
+        gauge={
+            'axis': {'range': [0, 14]}
+        }
+    ))
+
+    st.plotly_chart(ph_fig)
