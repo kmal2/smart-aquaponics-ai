@@ -165,3 +165,40 @@ sensor_data = {
 sensor_df = pd.DataFrame(sensor_data)
 
 st.dataframe(sensor_df)
+st.subheader("🚨 Smart Alerts System")
+
+if risk_prediction == "High":
+
+    st.error("🚨 CRITICAL ALERT!")
+
+    st.write("""
+    ### Immediate Actions Required:
+    - 🔴 Adjust water pH immediately
+    - 🔴 Increase oxygen supply
+    - 🔴 Reduce temperature
+    - 🔴 Check fish/plant health urgently
+    """)
+
+    st.warning("System is under HIGH RISK condition!")
+
+elif risk_prediction == "Medium":
+
+    st.warning("⚠ WARNING ALERT")
+
+    st.write("""
+    ### Recommended Monitoring:
+    - 🟠 Monitor humidity closely
+    - 🟠 Check nutrient balance
+    - 🟠 Observe system stability
+    """)
+
+else:
+
+    st.success("✅ SYSTEM STABLE")
+
+    st.write("""
+    ### Status:
+    - 🟢 All parameters are normal
+    - 🟢 No immediate action required
+    - 🟢 System running optimally
+    """)
