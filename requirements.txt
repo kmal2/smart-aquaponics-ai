@@ -8,3 +8,4 @@ plotly
 requests
 gunicorn
 streamlit-autorefresh
+scikit-learn
