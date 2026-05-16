@@ -110,3 +110,17 @@ else:
     st.write("- Water conditions are stable")
     st.write("- Nutrient levels are balanced")
     st.write("- Environment is suitable for growth")
+    st.subheader("Live Temperature Monitoring")
+
+import plotly.graph_objects as go
+
+fig = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=temperature,
+    title={'text': "Temperature °C"},
+    gauge={
+        'axis': {'range': [0, 50]}
+    }
+))
+
+st.plotly_chart(fig)
