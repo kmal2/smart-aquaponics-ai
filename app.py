@@ -1,129 +1,137 @@
+from streamlit_autorefresh import st_autorefresh
 import streamlit as st
 import pandas as pd
 import joblib
 import plotly.graph_objects as go
-from streamlit_autorefresh import st_autorefresh
+import sqlite3
+from datetime import datetime
 
 # =========================
-# PAGE CONFIG
+# APP CONFIG
 # =========================
 st.set_page_config(
-    page_title="Smart Aquaponics PRO",
+    page_title="Aquaponics Startup Cloud V3",
     page_icon="🌱",
     layout="wide"
 )
 
-# =========================
-# AUTO REFRESH (REAL TIME)
-# =========================
+st.title("🌱 Aquaponics AI Startup Cloud System V3")
 st_autorefresh(interval=5000, key="refresh")
-
-# =========================
-# STYLE
-# =========================
-st.markdown("""
-<style>
-.main {
-    background-color: #0e1117;
-    color: white;
-}
-
-.block-container {
-    padding: 2rem;
-}
-
-h1, h2, h3 {
-    color: #00ffcc;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# =========================
-# HEADER
-# =========================
-st.markdown("<h1 style='text-align:center;'>🌱 Smart Aquaponics AI PRO</h1>", unsafe_allow_html=True)
-st.caption("AI Prediction • IoT Simulation • Smart Monitoring System")
 
 st.markdown("---")
 
 # =========================
-# LOAD MODELS (SAFE)
+# LOAD MODELS
 # =========================
 @st.cache_resource
 def load_models():
     yield_model = joblib.load("yield_model.pkl")
     risk_model = joblib.load("risk_model.pkl")
-    return yield_model, risk_model
+    crop_model = joblib.load("crop_recommendation_model.pkl")
+    return yield_model, risk_model, crop_model
 
-try:
-    yield_model, risk_model = load_models()
-except Exception as e:
-    st.error("❌ Error loading models. Check .pkl files")
-    st.stop()
+yield_model, risk_model, crop_model = load_models()
 
 # =========================
-# SIDEBAR INPUTS
+# CLOUD DATABASE (SQLite -> Cloud Ready)
 # =========================
-st.sidebar.header("Sensor Inputs")
+conn = sqlite3.connect("aquaponics_cloud.db", check_same_thread=False)
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS sensor_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    N REAL,
+    P REAL,
+    K REAL,
+    temperature REAL,
+    humidity REAL,
+    ph REAL,
+    rainfall REAL,
+    yield REAL,
+    risk TEXT,
+    crop TEXT
+)
+""")
+conn.commit()
+
+# =========================
+# SIDEBAR INPUTS (IoT SIMULATION)
+# =========================
+st.sidebar.header("🌊 IoT Sensors")
 
 N = st.sidebar.slider("Nitrogen (N)", 0, 150, 90)
 P = st.sidebar.slider("Phosphorus (P)", 0, 150, 42)
 K = st.sidebar.slider("Potassium (K)", 0, 150, 43)
 
-temperature = st.sidebar.slider("Temperature (°C)", 0.0, 50.0, 21.0)
-humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 80.0)
-ph = st.sidebar.slider("pH Level", 0.0, 14.0, 6.5)
-rainfall = st.sidebar.slider("Rainfall (mm)", 0.0, 300.0, 200.0)
+temperature = st.sidebar.slider("Temperature", 0.0, 50.0, 21.0)
+humidity = st.sidebar.slider("Humidity", 0.0, 100.0, 80.0)
+ph = st.sidebar.slider("pH", 0.0, 14.0, 6.5)
+rainfall = st.sidebar.slider("Rainfall", 0.0, 300.0, 200.0)
 
 # =========================
-# INPUT DATA
+# FEATURE ENGINEERING
 # =========================
-data = pd.DataFrame([{
-    "N": N,
-    "P": P,
-    "K": K,
-    "temperature": temperature,
-    "humidity": humidity,
-    "ph": ph,
-    "rainfall": rainfall
-}])
+data = pd.DataFrame({
+    "N": [N],
+    "P": [P],
+    "K": [K],
+    "temperature": [temperature],
+    "humidity": [humidity],
+    "ph": [ph],
+    "rainfall": [rainfall]
+})
 
 # =========================
-# PREDICTIONS
+# AI PREDICTIONS
 # =========================
 yield_prediction = yield_model.predict(data)[0]
-risk_prediction_raw = risk_model.predict(data)[0]
-
-# FIX: Normalize risk output
-if isinstance(risk_prediction_raw, (int, float)):
-    if risk_prediction_raw == 2:
-        risk_prediction = "High"
-    elif risk_prediction_raw == 1:
-        risk_prediction = "Medium"
-    else:
-        risk_prediction = "Low"
-else:
-    risk_prediction = str(risk_prediction_raw)
+risk_prediction = str(risk_model.predict(data)[0])
+crop_prediction = str(crop_model.predict(data)[0])
 
 # =========================
-# DASHBOARD METRICS
+# SAVE TO CLOUD DB
 # =========================
-col1, col2, col3 = st.columns(3)
+cursor.execute("""
+INSERT INTO sensor_logs (
+timestamp, N, P, K, temperature, humidity, ph, rainfall, yield, risk, crop
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+N, P, K, temperature, humidity, ph, rainfall,
+float(yield_prediction),
+risk_prediction,
+crop_prediction
+))
 
-col1.metric("🌱 Plant Health Score", f"{yield_prediction:.2f}/10")
-col2.metric("⚠ Risk Level", risk_prediction)
-col3.metric("📡 System Status", "ONLINE")
+conn.commit()
+
+# =========================
+# LOAD HISTORY FROM CLOUD
+# =========================
+df = pd.read_sql("SELECT * FROM sensor_logs ORDER BY id DESC LIMIT 50", conn)
+
+# =========================
+# METRICS
+# =========================
+c1, c2, c3 = st.columns(3)
+
+c1.metric("🌾 Yield", f"{yield_prediction:.2f}")
+c2.metric("⚠ Risk", risk_prediction)
+c3.metric("🌱 Crop", crop_prediction)
 
 st.markdown("---")
 
 # =========================
-# GAUGE CHART
+# GAUGE
 # =========================
 fig = go.Figure(go.Indicator(
     mode="gauge+number",
     value=yield_prediction,
-   title={'text': "Plant Health Score"},
-    gauge={'axis': {'range': [0, max(10, float(yield_prediction) * 1.2)]}}
+    title={'text': "Yield Prediction"},
+    gauge={'axis': {'range': [0, 10]}}
 ))
 
 st.plotly_chart(fig, use_container_width=True)
@@ -131,123 +139,42 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
 # =========================
-# AI RECOMMENDATION
+# LIVE CLOUD DATA
 # =========================
-st.subheader("🤖 AI Recommendation")
+st.subheader("☁️ Cloud Sensor Database (Live)")
 
-if risk_prediction == "High":
-    st.error("🚨 HIGH RISK DETECTED")
-    st.write("""
-    - Reduce temperature immediately  
-    - Adjust pH levels  
-    - Increase oxygen supply  
-    - Check system health urgently  
-    """)
-
-elif risk_prediction == "Medium":
-    st.warning("⚠ MEDIUM RISK")
-    st.write("""
-    - Monitor humidity  
-    - Stabilize environment  
-    - Check nutrients  
-    """)
-
-else:
-    st.success("✅ SYSTEM STABLE")
-    st.write("""
-    - All parameters normal  
-    - System running efficiently  
-    """)
-
-st.markdown("---")
+st.dataframe(df, use_container_width=True)
 
 # =========================
-# REAL-TIME MONITORING
+# TREND ANALYSIS
 # =========================
-st.subheader("📊 Live Monitoring")
+st.subheader("📈 Yield Trend (Cloud History)")
 
-c1, c2, c3 = st.columns(3)
-
-c1.metric("🌡 Temperature", f"{temperature} °C")
-c2.metric("💧 Humidity", f"{humidity} %")
-c3.metric("⚗ pH", ph)
-
-# GAUGES
-temp_fig = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=temperature,
-    title={'text': "Temperature"},
-    gauge={'axis': {'range': [0, 50]}}
-))
-
-hum_fig = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=humidity,
-    title={'text': "Humidity"},
-    gauge={'axis': {'range': [0, 100]}}
-))
-
-ph_fig = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=ph,
-    title={'text': "pH Level"},
-    gauge={'axis': {'range': [0, 14]}}
-))
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.plotly_chart(temp_fig, use_container_width=True)
-
-with col2:
-    st.plotly_chart(hum_fig, use_container_width=True)
-
-with col3:
-    st.plotly_chart(ph_fig, use_container_width=True)
-
-st.markdown("---")
-
-# =========================
-# LIVE DATA TABLE
-# =========================
-st.subheader("📋 System Data")
-
-st.dataframe(pd.DataFrame({
-    "N": [N],
-    "P": [P],
-    "K": [K],
-    "Temperature": [temperature],
-    "Humidity": [humidity],
-    "pH": [ph],
-    "Rainfall": [rainfall],
-   "Plant Health Score": [yield_prediction],
-    "Risk": [risk_prediction]
-}), use_container_width=True)
+if len(df) > 1:
+    st.line_chart(df["yield"])
 
 st.markdown("---")
 
 # =========================
 # SMART ALERTS
 # =========================
-st.subheader("🚨 Smart Alerts System")
+st.subheader("🚨 Smart Alerts")
 
 if risk_prediction == "High":
-    st.markdown("""
-    <div style="background:#ff4d4d;padding:15px;border-radius:10px;color:white;">
-    🚨 CRITICAL ALERT - Immediate Action Required
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.error("🚨 CRITICAL SYSTEM ALERT")
 elif risk_prediction == "Medium":
-    st.markdown("""
-    <div style="background:#ff9800;padding:15px;border-radius:10px;color:white;">
-    ⚠ WARNING - Monitor System Closely
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.warning("⚠ SYSTEM WARNING")
 else:
-    st.markdown("""
-    <div style="background:#2ecc71;padding:15px;border-radius:10px;color:white;">
-    ✅ SYSTEM HEALTHY
-    </div>
-    """, unsafe_allow_html=True)
+    st.success("✅ SYSTEM STABLE")
+
+# =========================
+# INSIGHT ENGINE
+# =========================
+st.subheader("🌱 AI Crop Insight")
+
+st.success(f"""
+Recommended Crop: {crop_prediction}
+
+System stored in Cloud DB ✔
+Total Records: {len(df)}
+""")
