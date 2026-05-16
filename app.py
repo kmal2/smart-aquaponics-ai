@@ -84,8 +84,29 @@ st.plotly_chart(fig, use_container_width=True)
 st.subheader("AI Recommendation")
 
 if risk_prediction == "High":
-    st.error("⚠ High Risk Detected! Check pH and Humidity.")
+
+    st.error("⚠ High Risk Detected!")
+
+    st.write("### Recommended Actions:")
+    st.write("- Reduce water temperature")
+    st.write("- Adjust pH levels immediately")
+    st.write("- Increase oxygen supply")
+    st.write("- Check nutrient balance")
+
 elif risk_prediction == "Medium":
-    st.warning("⚠ Medium Risk. Monitor system carefully.")
+
+    st.warning("⚠ Medium Risk")
+
+    st.write("### Recommended Actions:")
+    st.write("- Monitor humidity regularly")
+    st.write("- Keep water quality stable")
+    st.write("- Observe plant health closely")
+
 else:
-    st.success("✅ System Status is Good.")
+
+    st.success("✅ System Status is Good")
+
+    st.write("### System Analysis:")
+    st.write("- Water conditions are stable")
+    st.write("- Nutrient levels are balanced")
+    st.write("- Environment is suitable for growth")
