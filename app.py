@@ -151,3 +151,17 @@ with col2:
     ))
 
     st.plotly_chart(ph_fig)
+    st.subheader("Real-Time Sensor Data")
+
+sensor_data = {
+    "Temperature": [temperature],
+    "Humidity": [humidity],
+    "pH": [ph],
+    "Rainfall": [rainfall],
+    "Yield Prediction": [yield_prediction],
+    "Risk Level": [risk_prediction]
+}
+
+sensor_df = pd.DataFrame(sensor_data)
+
+st.dataframe(sensor_df)
