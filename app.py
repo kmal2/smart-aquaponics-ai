@@ -18,10 +18,26 @@ st.set_page_config(
     page_icon="🌱",
     layout="wide"
 )
-
-st.title("🌱 Smart Aquaponics AI Dashboard")
+st.markdown("""
+<style>
+    .main {
+        background-color: #0e1117;
+    }
+    h1 {
+        color: #00ffcc;
+    }
+    .stMetric {
+        background-color: #1c1f26;
+        padding: 10px;
+        border-radius: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>🌱 Smart Aquaponics AI Platform</h1>", unsafe_allow_html=True)
+st.caption("Smart Farming • AI Prediction • Real-Time IoT Monitoring")
 st_autorefresh(interval=5000, key="datarefresh")
-st.write("Real-Time Monitoring & Prediction System")
+
+st.markdown("---")
 
 # =========================
 # Sidebar Inputs
@@ -53,33 +69,43 @@ data = pd.DataFrame({
 yield_prediction = yield_model.predict(data)[0]
 risk_prediction = risk_model.predict(data)[0]
 
+# تأكيد أن risk string
+risk_prediction = str(risk_prediction)
+
 # =========================
 # Metrics
 # =========================
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Predicted Yield", f"{yield_prediction:.2f} Ton")
+    st.markdown("### 🌾 Yield")
+    st.markdown(f"<h2 style='color:#00ffcc'>{yield_prediction:.2f} Ton</h2>", unsafe_allow_html=True)
 
 with col2:
-    st.metric("Risk Level", risk_prediction)
+    st.markdown("### ⚠ Risk")
+    color = "red" if risk_prediction == "High" else "orange" if risk_prediction == "Medium" else "lightgreen"
+    st.markdown(f"<h2 style='color:{color}'>{risk_prediction}</h2>", unsafe_allow_html=True)
+
+with col3:
+    st.markdown("### 📡 System")
+    st.markdown("<h2 style='color:#00ffcc'>ACTIVE</h2>", unsafe_allow_html=True)
 
 # =========================
-# Gauge Chart
+# Gauge Chart (Yield)
 # =========================
 fig = go.Figure(go.Indicator(
     mode="gauge+number",
     value=yield_prediction,
     title={'text': "Yield Prediction"},
-    gauge={
-        'axis': {'range': [0, 10]}
-    }
+    gauge={'axis': {'range': [0, 10]}}
 ))
 
 st.plotly_chart(fig, use_container_width=True)
 
+st.markdown("---")
+
 # =========================
-# Recommendations
+# AI Recommendation
 # =========================
 st.subheader("AI Recommendation")
 
@@ -110,95 +136,121 @@ else:
     st.write("- Water conditions are stable")
     st.write("- Nutrient levels are balanced")
     st.write("- Environment is suitable for growth")
-    st.subheader("Live Temperature Monitoring")
 
-import plotly.graph_objects as go
+st.markdown("---")
 
-fig = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=temperature,
-    title={'text': "Temperature °C"},
-    gauge={
-        'axis': {'range': [0, 50]}
-    }
-))
+# =========================
+# Real-Time Monitoring
+# =========================
+st.subheader("📊 Real-Time Sensor Monitoring")
 
-st.plotly_chart(fig)
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-
-    humidity_fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=humidity,
-        title={'text': "Humidity %"},
-        gauge={
-            'axis': {'range': [0, 100]}
-        }
-    ))
-
-    st.plotly_chart(humidity_fig)
+    st.metric("🌡 Temperature", f"{temperature} °C")
 
 with col2:
+    st.metric("💧 Humidity", f"{humidity} %")
 
-    ph_fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=ph,
-        title={'text': "pH Level"},
-        gauge={
-            'axis': {'range': [0, 14]}
-        }
-    ))
+with col3:
+    st.metric("⚗ pH Level", ph)
 
-    st.plotly_chart(ph_fig)
-    st.subheader("Real-Time Sensor Data")
+# Gauges
+temp_fig = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=temperature,
+    title={'text': "Temperature"},
+    gauge={'axis': {'range': [0, 50]}}
+))
 
-sensor_data = {
+hum_fig = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=humidity,
+    title={'text': "Humidity"},
+    gauge={'axis': {'range': [0, 100]}}
+))
+
+ph_fig = go.Figure(go.Indicator(
+    mode="gauge+number",
+    value=ph,
+    title={'text': "pH Level"},
+    gauge={'axis': {'range': [0, 14]}}
+))
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.plotly_chart(temp_fig, use_container_width=True)
+
+with col2:
+    st.plotly_chart(hum_fig, use_container_width=True)
+
+with col3:
+    st.plotly_chart(ph_fig, use_container_width=True)
+
+st.markdown("---")
+
+# =========================
+# Live Table
+# =========================
+st.subheader("📋 Real-Time Sensor Data")
+
+sensor_df = pd.DataFrame({
     "Temperature": [temperature],
     "Humidity": [humidity],
     "pH": [ph],
     "Rainfall": [rainfall],
     "Yield Prediction": [yield_prediction],
     "Risk Level": [risk_prediction]
-}
+})
 
-sensor_df = pd.DataFrame(sensor_data)
+st.dataframe(sensor_df, use_container_width=True)
 
-st.dataframe(sensor_df)
+st.markdown("---")
+
+# =========================
+# Smart Alerts System
+# =========================
 st.subheader("🚨 Smart Alerts System")
 
 if risk_prediction == "High":
 
-    st.error("🚨 CRITICAL ALERT!")
-
-    st.write("""
-    ### Immediate Actions Required:
-    - 🔴 Adjust water pH immediately
-    - 🔴 Increase oxygen supply
-    - 🔴 Reduce temperature
-    - 🔴 Check fish/plant health urgently
-    """)
-
-    st.warning("System is under HIGH RISK condition!")
+    st.markdown("""
+    <div style="background-color:#ff4d4d;padding:15px;border-radius:10px;color:white;">
+        <h3>🚨 CRITICAL ALERT!</h3>
+        <p>Immediate Actions Required:</p>
+        <ul>
+            <li>🔴 Adjust water pH immediately</li>
+            <li>🔴 Increase oxygen supply</li>
+            <li>🔴 Reduce temperature</li>
+            <li>🔴 Check system urgently</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
 elif risk_prediction == "Medium":
 
-    st.warning("⚠ WARNING ALERT")
-
-    st.write("""
-    ### Recommended Monitoring:
-    - 🟠 Monitor humidity closely
-    - 🟠 Check nutrient balance
-    - 🟠 Observe system stability
-    """)
+    st.markdown("""
+    <div style="background-color:#ff9800;padding:15px;border-radius:10px;color:white;">
+        <h3>⚠ WARNING ALERT</h3>
+        <p>Recommended Monitoring:</p>
+        <ul>
+            <li>🟠 Monitor humidity closely</li>
+            <li>🟠 Check nutrient balance</li>
+            <li>🟠 Observe system stability</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
 else:
 
-    st.success("✅ SYSTEM STABLE")
-
-    st.write("""
-    ### Status:
-    - 🟢 All parameters are normal
-    - 🟢 No immediate action required
-    - 🟢 System running optimally
-    """)
+    st.markdown("""
+    <div style="background-color:#2ecc71;padding:15px;border-radius:10px;color:white;">
+        <h3>✅ SYSTEM STABLE</h3>
+        <p>All parameters are normal</p>
+        <ul>
+            <li>🟢 No immediate action required</li>
+            <li>🟢 System running optimally</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
