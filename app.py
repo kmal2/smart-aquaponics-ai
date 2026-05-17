@@ -1,43 +1,78 @@
+from auth import init_users, register_user, login_user
 from db import init_db, save_prediction, load_history
 import streamlit as st
 import pandas as pd
 import joblib
 import plotly.graph_objects as go
+import os
 
 # =========================
-# PAGE CONFIG
+# INIT
 # =========================
-st.set_page_config(
-    page_title="Smart Agriculture AI",
-    page_icon="🌱",
-    layout="wide"
-)
+init_db()
+init_users()
 
 # =========================
-# LOAD MODELS
+# LOAD MODELS SAFELY
 # =========================
 @st.cache_resource
 def load_models():
+    if not os.path.exists("yield_model.pkl") or not os.path.exists("crop_model.pkl"):
+        st.error("❌ Model files missing (.pkl)")
+        st.stop()
+
     yield_model = joblib.load("yield_model.pkl")
     crop_model = joblib.load("crop_model.pkl")
+
     return yield_model, crop_model
+
 
 yield_model, crop_model = load_models()
 
-# =========================
-# INIT DATABASE (IMPORTANT)
-# =========================
-init_db()
 
 # =========================
-# TITLE
+# LOGIN SYSTEM
 # =========================
+if "user" not in st.session_state:
+
+    st.title("🔐 Smart Agriculture Login System")
+
+    choice = st.radio("Choose Option", ["Login", "Register"])
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if choice == "Register":
+        if st.button("Create Account"):
+            if register_user(username, password):
+                st.success("Account Created 🚀")
+            else:
+                st.error("Username already exists")
+
+    if choice == "Login":
+        if st.button("Login"):
+            user = login_user(username, password)
+            if user:
+                st.session_state["user"] = username
+                st.success("Login Successful 🚀")
+                st.rerun()
+            else:
+                st.error("Invalid Credentials")
+
+    st.stop()
+
+
+# =========================
+# UI
+# =========================
+st.sidebar.success(f"Logged in as: {st.session_state['user']}")
+
 st.title("🌱 Smart Agriculture AI System")
-
 st.markdown("---")
 
+
 # =========================
-# SIDEBAR INPUTS
+# INPUTS
 # =========================
 st.sidebar.header("🌿 Input Parameters")
 
@@ -49,6 +84,7 @@ temperature = st.sidebar.slider("Temperature (°C)", 0.0, 50.0, 25.0)
 humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 60.0)
 ph = st.sidebar.slider("Soil pH", 0.0, 14.0, 6.5)
 rainfall = st.sidebar.slider("Rainfall (mm)", 0.0, 500.0, 100.0)
+
 
 # =========================
 # INPUT DATA
@@ -63,25 +99,29 @@ input_data = pd.DataFrame({
     "rainfall": [rainfall]
 })
 
+
 # =========================
-# PREDICTION BUTTON
+# FIX FEATURE ORDER (VERY IMPORTANT)
+# =========================
+try:
+    input_data = input_data[yield_model.feature_names_in_]
+except:
+    pass
+
+
+# =========================
+# PREDICTION
 # =========================
 if st.button("🚀 Predict AI Results"):
 
     try:
-        # =========================
-        # PREDICTIONS
-        # =========================
         yield_prediction = yield_model.predict(input_data)[0]
         crop_prediction = crop_model.predict(input_data)[0]
 
-        # =========================
-        # SAVE TO DATABASE
-        # =========================
+        # SAVE
         save_prediction((
-            N,
-            P,
-            K,
+            st.session_state["user"],
+            N, P, K,
             temperature,
             humidity,
             ph,
@@ -90,19 +130,12 @@ if st.button("🚀 Predict AI Results"):
             str(crop_prediction)
         ))
 
-        # =========================
-        # METRICS
-        # =========================
+        # RESULTS
         c1, c2 = st.columns(2)
+        c1.metric("🌾 Yield", f"{yield_prediction:.2f}")
+        c2.metric("🌱 Crop", crop_prediction)
 
-        c1.metric("🌾 Yield Prediction", f"{yield_prediction:.2f}")
-        c2.metric("🌱 Recommended Crop", crop_prediction)
-
-        st.markdown("---")
-
-        # =========================
         # GAUGE
-        # =========================
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=float(yield_prediction),
@@ -112,54 +145,32 @@ if st.button("🚀 Predict AI Results"):
 
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("---")
-
-        # =========================
-        # INPUT TABLE
-        # =========================
-        st.subheader("📊 Input Data")
-        st.dataframe(input_data, use_container_width=True)
-
-        st.markdown("---")
-
-        # =========================
-        # AI ANALYSIS
-        # =========================
-        st.subheader("🤖 AI Analysis")
-
+        # ANALYSIS
         if yield_prediction >= 7:
-            st.success("✅ Excellent conditions for high productivity")
-
+            st.success("Excellent conditions 🌟")
         elif yield_prediction >= 4:
-            st.warning("⚠ Moderate productivity")
-
+            st.warning("Moderate conditions ⚠")
         else:
-            st.error("🚨 Low productivity - Improve conditions")
+            st.error("Poor conditions 🚨")
 
     except Exception as e:
-        st.error(f"❌ Error: {e}")
+        st.error(f"Error: {e}")
+
 
 # =========================
-# HISTORY SECTION (NEW)
+# HISTORY
 # =========================
 st.markdown("---")
-
-st.subheader("📊 Prediction History")
+st.subheader("📊 Your History")
 
 try:
     history = load_history()
-    st.dataframe(history, use_container_width=True)
-except:
-    st.warning("No history available yet")
 
-# =========================
-# MODEL INFO
-# =========================
-st.markdown("---")
+    if history is not None and not history.empty:
+        user_history = history[history["username"] == st.session_state["user"]]
+        st.dataframe(user_history, use_container_width=True)
+    else:
+        st.info("No history yet")
 
-st.subheader("🧠 Model Features")
-
-try:
-    st.write(list(yield_model.feature_names_in_))
-except:
-    st.write("Feature names not available")
+except Exception as e:
+    st.warning(f"History error: {e}")
