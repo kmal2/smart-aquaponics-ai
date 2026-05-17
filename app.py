@@ -13,28 +13,20 @@ st.set_page_config(
 )
 
 # =========================
-# LOAD MODEL
+# LOAD MODELS
 # =========================
 @st.cache_resource
-def load_model():
-    return joblib.load("yield_model.pkl")
+def load_models():
+    yield_model = joblib.load("yield_model.pkl")
+    crop_model = joblib.load("crop_model.pkl")
+    return yield_model, crop_model
 
-yield_model = load_model()
+yield_model, crop_model = load_models()
 
 # =========================
 # TITLE
 # =========================
-st.title("🌱 Smart Agriculture Yield Prediction")
-
-st.markdown("""
-AI-powered system for predicting crop yield based on:
-
-- Soil Nutrients (NPK)
-- Temperature
-- Humidity
-- pH
-- Rainfall
-""")
+st.title("🌱 Smart Agriculture AI System")
 
 st.markdown("---")
 
@@ -48,15 +40,12 @@ P = st.sidebar.slider("Phosphorus (P)", 0, 145, 50)
 K = st.sidebar.slider("Potassium (K)", 0, 205, 50)
 
 temperature = st.sidebar.slider("Temperature (°C)", 0.0, 50.0, 25.0)
-
 humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 60.0)
-
 ph = st.sidebar.slider("Soil pH", 0.0, 14.0, 6.5)
-
 rainfall = st.sidebar.slider("Rainfall (mm)", 0.0, 500.0, 100.0)
 
 # =========================
-# DATAFRAME
+# DATAFRAME (SAME FEATURES FOR YIELD MODEL)
 # =========================
 input_data = pd.DataFrame({
     "N": [N],
@@ -69,36 +58,35 @@ input_data = pd.DataFrame({
 })
 
 # =========================
-# PREDICTION
+# PREDICTION BUTTON
 # =========================
-if st.button("🚀 Predict Yield"):
+if st.button("🚀 Predict AI Results"):
 
     try:
-        prediction = yield_model.predict(input_data)[0]
+        # =========================
+        # PREDICTIONS
+        # =========================
+        yield_prediction = yield_model.predict(input_data)[0]
+        crop_prediction = crop_model.predict(input_data)[0]
 
         # =========================
         # METRICS
         # =========================
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
 
-        c1.metric("🌾 Yield Prediction", f"{prediction:.2f}")
-
-        c2.metric("🌡 Temperature", f"{temperature} °C")
-
-        c3.metric("💧 Humidity", f"{humidity}%")
+        c1.metric("🌾 Yield Prediction", f"{yield_prediction:.2f}")
+        c2.metric("🌱 Recommended Crop", crop_prediction)
 
         st.markdown("---")
 
         # =========================
-        # GAUGE CHART
+        # GAUGE
         # =========================
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
-            value=float(prediction),
-            title={'text': "Predicted Yield"},
-            gauge={
-                'axis': {'range': [0, 10]}
-            }
+            value=float(yield_prediction),
+            title={'text': "Yield Prediction"},
+            gauge={'axis': {'range': [0, 10]}}
         ))
 
         st.plotly_chart(fig, use_container_width=True)
@@ -109,7 +97,6 @@ if st.button("🚀 Predict Yield"):
         # INPUT TABLE
         # =========================
         st.subheader("📊 Input Data")
-
         st.dataframe(input_data, use_container_width=True)
 
         st.markdown("---")
@@ -119,28 +106,26 @@ if st.button("🚀 Predict Yield"):
         # =========================
         st.subheader("🤖 AI Analysis")
 
-        if prediction >= 7:
-            st.success("✅ Excellent conditions for high crop productivity.")
+        if yield_prediction >= 7:
+            st.success("✅ Excellent conditions for high productivity")
 
-        elif prediction >= 4:
-            st.warning("⚠ Moderate productivity expected.")
+        elif yield_prediction >= 4:
+            st.warning("⚠ Moderate productivity")
 
         else:
-            st.error("🚨 Low productivity predicted. Improve soil or climate conditions.")
+            st.error("🚨 Low productivity - Improve conditions")
 
     except Exception as e:
-        st.error(f"❌ Prediction Error: {e}")
+        st.error(f"❌ Error: {e}")
 
 # =========================
-# MODEL FEATURES
+# MODEL INFO
 # =========================
 st.markdown("---")
 
 st.subheader("🧠 Model Features")
 
 try:
-    features = list(yield_model.feature_names_in_)
-    st.write(features)
-
+    st.write(list(yield_model.feature_names_in_))
 except:
-    st.warning("Feature names are not available in this model.")
+    st.write("Feature names not available")

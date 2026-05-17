@@ -5,19 +5,19 @@ from sklearn.metrics import accuracy_score
 import joblib
 
 # =========================
-# Load Dataset
+# LOAD DATASET
 # =========================
-df = pd.read_csv("aquaponics_crop_dataset.csv")
+df = pd.read_csv("crop_dataset.csv")
 
 # =========================
-# Features & Labels
+# FEATURES & TARGET
 # =========================
 X = df.drop("label", axis=1)
 
 y = df["label"]
 
 # =========================
-# Split Data
+# SPLIT DATA
 # =========================
 X_train, X_test, y_train, y_test = train_test_split(
     X,
@@ -27,7 +27,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # =========================
-# Train Model
+# TRAIN MODEL
 # =========================
 model = RandomForestClassifier(
     n_estimators=200,
@@ -37,17 +37,17 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)
 
 # =========================
-# Accuracy
+# EVALUATION
 # =========================
 predictions = model.predict(X_test)
 
 accuracy = accuracy_score(y_test, predictions)
 
-print(f"Crop Recommendation Accuracy: {accuracy:.2f}")
+print(f"✅ Crop Recommendation Accuracy: {accuracy:.2f}")
 
 # =========================
-# Save Model
+# SAVE MODEL
 # =========================
-joblib.dump(model, "crop_recommendation_model.pkl")
+joblib.dump(model, "crop_model.pkl")
 
-print("Crop Recommendation Model Trained Successfully ✔")
+print("✅ Crop Recommendation Model Saved")
