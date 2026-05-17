@@ -1,3 +1,4 @@
+from db import init_db, save_prediction, load_history
 import streamlit as st
 import pandas as pd
 import joblib
@@ -24,6 +25,11 @@ def load_models():
 yield_model, crop_model = load_models()
 
 # =========================
+# INIT DATABASE (IMPORTANT)
+# =========================
+init_db()
+
+# =========================
 # TITLE
 # =========================
 st.title("🌱 Smart Agriculture AI System")
@@ -45,7 +51,7 @@ ph = st.sidebar.slider("Soil pH", 0.0, 14.0, 6.5)
 rainfall = st.sidebar.slider("Rainfall (mm)", 0.0, 500.0, 100.0)
 
 # =========================
-# DATAFRAME (SAME FEATURES FOR YIELD MODEL)
+# INPUT DATA
 # =========================
 input_data = pd.DataFrame({
     "N": [N],
@@ -68,6 +74,21 @@ if st.button("🚀 Predict AI Results"):
         # =========================
         yield_prediction = yield_model.predict(input_data)[0]
         crop_prediction = crop_model.predict(input_data)[0]
+
+        # =========================
+        # SAVE TO DATABASE
+        # =========================
+        save_prediction((
+            N,
+            P,
+            K,
+            temperature,
+            humidity,
+            ph,
+            rainfall,
+            float(yield_prediction),
+            str(crop_prediction)
+        ))
 
         # =========================
         # METRICS
@@ -117,6 +138,19 @@ if st.button("🚀 Predict AI Results"):
 
     except Exception as e:
         st.error(f"❌ Error: {e}")
+
+# =========================
+# HISTORY SECTION (NEW)
+# =========================
+st.markdown("---")
+
+st.subheader("📊 Prediction History")
+
+try:
+    history = load_history()
+    st.dataframe(history, use_container_width=True)
+except:
+    st.warning("No history available yet")
 
 # =========================
 # MODEL INFO
