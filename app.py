@@ -1,79 +1,64 @@
-from streamlit_autorefresh import st_autorefresh
 import streamlit as st
 import pandas as pd
 import joblib
 import plotly.graph_objects as go
-import sqlite3
-from datetime import datetime
 
 # =========================
-# APP CONFIG
+# PAGE CONFIG
 # =========================
 st.set_page_config(
-    page_title="Aquaponics Startup Cloud V3",
+    page_title="Smart Agriculture AI",
     page_icon="🌱",
     layout="wide"
 )
 
-st.title("🌱 Aquaponics AI Startup Cloud System V3")
-st_autorefresh(interval=5000, key="refresh")
+# =========================
+# LOAD MODEL
+# =========================
+@st.cache_resource
+def load_model():
+    return joblib.load("yield_model.pkl")
+
+yield_model = load_model()
+
+# =========================
+# TITLE
+# =========================
+st.title("🌱 Smart Agriculture Yield Prediction")
+
+st.markdown("""
+AI-powered system for predicting crop yield based on:
+
+- Soil Nutrients (NPK)
+- Temperature
+- Humidity
+- pH
+- Rainfall
+""")
 
 st.markdown("---")
 
 # =========================
-# LOAD MODELS
+# SIDEBAR INPUTS
 # =========================
-@st.cache_resource
-def load_models():
-    yield_model = joblib.load("yield_model.pkl")
-    risk_model = joblib.load("risk_model.pkl")
-    crop_model = joblib.load("crop_recommendation_model.pkl")
-    return yield_model, risk_model, crop_model
+st.sidebar.header("🌿 Input Parameters")
 
-yield_model, risk_model, crop_model = load_models()
+N = st.sidebar.slider("Nitrogen (N)", 0, 140, 50)
+P = st.sidebar.slider("Phosphorus (P)", 0, 145, 50)
+K = st.sidebar.slider("Potassium (K)", 0, 205, 50)
 
-# =========================
-# CLOUD DATABASE (SQLite -> Cloud Ready)
-# =========================
-conn = sqlite3.connect("aquaponics_cloud.db", check_same_thread=False)
-cursor = conn.cursor()
+temperature = st.sidebar.slider("Temperature (°C)", 0.0, 50.0, 25.0)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS sensor_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT,
-    N REAL,
-    P REAL,
-    K REAL,
-    temperature REAL,
-    humidity REAL,
-    ph REAL,
-    rainfall REAL,
-    yield REAL,
-    risk TEXT,
-    crop TEXT
-)
-""")
-conn.commit()
+humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 60.0)
+
+ph = st.sidebar.slider("Soil pH", 0.0, 14.0, 6.5)
+
+rainfall = st.sidebar.slider("Rainfall (mm)", 0.0, 500.0, 100.0)
 
 # =========================
-# SIDEBAR INPUTS (IoT SIMULATION)
+# DATAFRAME
 # =========================
-st.sidebar.header("🌊 IoT Sensors")
-
-N = st.sidebar.slider("Nitrogen (N)", 0, 150, 90)
-P = st.sidebar.slider("Phosphorus (P)", 0, 150, 42)
-K = st.sidebar.slider("Potassium (K)", 0, 150, 43)
-
-temperature = st.sidebar.slider("Temperature", 0.0, 50.0, 21.0)
-humidity = st.sidebar.slider("Humidity", 0.0, 100.0, 80.0)
-ph = st.sidebar.slider("pH", 0.0, 14.0, 6.5)
-rainfall = st.sidebar.slider("Rainfall", 0.0, 300.0, 200.0)
-
-# =========================
-# FEATURE ENGINEERING
-# =========================
-data = pd.DataFrame({
+input_data = pd.DataFrame({
     "N": [N],
     "P": [P],
     "K": [K],
@@ -84,97 +69,78 @@ data = pd.DataFrame({
 })
 
 # =========================
-# AI PREDICTIONS
+# PREDICTION
 # =========================
-yield_prediction = yield_model.predict(data)[0]
-risk_prediction = str(risk_model.predict(data)[0])
-crop_prediction = str(crop_model.predict(data)[0])
+if st.button("🚀 Predict Yield"):
+
+    try:
+        prediction = yield_model.predict(input_data)[0]
+
+        # =========================
+        # METRICS
+        # =========================
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric("🌾 Yield Prediction", f"{prediction:.2f}")
+
+        c2.metric("🌡 Temperature", f"{temperature} °C")
+
+        c3.metric("💧 Humidity", f"{humidity}%")
+
+        st.markdown("---")
+
+        # =========================
+        # GAUGE CHART
+        # =========================
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=float(prediction),
+            title={'text': "Predicted Yield"},
+            gauge={
+                'axis': {'range': [0, 10]}
+            }
+        ))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("---")
+
+        # =========================
+        # INPUT TABLE
+        # =========================
+        st.subheader("📊 Input Data")
+
+        st.dataframe(input_data, use_container_width=True)
+
+        st.markdown("---")
+
+        # =========================
+        # AI ANALYSIS
+        # =========================
+        st.subheader("🤖 AI Analysis")
+
+        if prediction >= 7:
+            st.success("✅ Excellent conditions for high crop productivity.")
+
+        elif prediction >= 4:
+            st.warning("⚠ Moderate productivity expected.")
+
+        else:
+            st.error("🚨 Low productivity predicted. Improve soil or climate conditions.")
+
+    except Exception as e:
+        st.error(f"❌ Prediction Error: {e}")
 
 # =========================
-# SAVE TO CLOUD DB
+# MODEL FEATURES
 # =========================
-cursor.execute("""
-INSERT INTO sensor_logs (
-timestamp, N, P, K, temperature, humidity, ph, rainfall, yield, risk, crop
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-""", (
-datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-N, P, K, temperature, humidity, ph, rainfall,
-float(yield_prediction),
-risk_prediction,
-crop_prediction
-))
-
-conn.commit()
-
-# =========================
-# LOAD HISTORY FROM CLOUD
-# =========================
-df = pd.read_sql("SELECT * FROM sensor_logs ORDER BY id DESC LIMIT 50", conn)
-
-# =========================
-# METRICS
-# =========================
-c1, c2, c3 = st.columns(3)
-
-c1.metric("🌾 Yield", f"{yield_prediction:.2f}")
-c2.metric("⚠ Risk", risk_prediction)
-c3.metric("🌱 Crop", crop_prediction)
-
 st.markdown("---")
 
-# =========================
-# GAUGE
-# =========================
-fig = go.Figure(go.Indicator(
-    mode="gauge+number",
-    value=yield_prediction,
-    title={'text': "Yield Prediction"},
-    gauge={'axis': {'range': [0, 10]}}
-))
+st.subheader("🧠 Model Features")
 
-st.plotly_chart(fig, use_container_width=True)
+try:
+    features = list(yield_model.feature_names_in_)
+    st.write(features)
 
-st.markdown("---")
-
-# =========================
-# LIVE CLOUD DATA
-# =========================
-st.subheader("☁️ Cloud Sensor Database (Live)")
-
-st.dataframe(df, use_container_width=True)
-
-# =========================
-# TREND ANALYSIS
-# =========================
-st.subheader("📈 Yield Trend (Cloud History)")
-
-if len(df) > 1:
-    st.line_chart(df["yield"])
-
-st.markdown("---")
-
-# =========================
-# SMART ALERTS
-# =========================
-st.subheader("🚨 Smart Alerts")
-
-if risk_prediction == "High":
-    st.error("🚨 CRITICAL SYSTEM ALERT")
-elif risk_prediction == "Medium":
-    st.warning("⚠ SYSTEM WARNING")
-else:
-    st.success("✅ SYSTEM STABLE")
-
-# =========================
-# INSIGHT ENGINE
-# =========================
-st.subheader("🌱 AI Crop Insight")
-
-st.success(f"""
-Recommended Crop: {crop_prediction}
-
-System stored in Cloud DB ✔
-Total Records: {len(df)}
-""")
+except:
+    st.warning("Feature names are not available in this model.")
