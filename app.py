@@ -29,7 +29,6 @@ def load_models():
 
 yield_model, crop_model = load_models()
 
-
 # =========================
 # LOGIN SYSTEM
 # =========================
@@ -61,15 +60,13 @@ if "user" not in st.session_state:
 
     st.stop()
 
-
 # =========================
 # UI
 # =========================
 st.sidebar.success(f"Logged in as: {st.session_state['user']}")
 
-st.title("🌱 Smart Agriculture AI System")
+st.title("🌱 Smart Aquaponics AI System")
 st.markdown("---")
-
 
 # =========================
 # INPUTS
@@ -85,7 +82,6 @@ humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 60.0)
 ph = st.sidebar.slider("Soil pH", 0.0, 14.0, 6.5)
 rainfall = st.sidebar.slider("Rainfall (mm)", 0.0, 500.0, 100.0)
 
-
 # =========================
 # INPUT DATA
 # =========================
@@ -99,15 +95,13 @@ input_data = pd.DataFrame({
     "rainfall": [rainfall]
 })
 
-
 # =========================
-# FIX FEATURE ORDER (VERY IMPORTANT)
+# FIX FEATURE ORDER
 # =========================
 try:
     input_data = input_data[yield_model.feature_names_in_]
 except:
     pass
-
 
 # =========================
 # PREDICTION
@@ -118,7 +112,20 @@ if st.button("🚀 Predict AI Results"):
         yield_prediction = yield_model.predict(input_data)[0]
         crop_prediction = crop_model.predict(input_data)[0]
 
-        # SAVE
+        # =========================
+        # NEW: HEALTH + RISK SYSTEM
+        # =========================
+        if yield_prediction >= 7:
+            health_score = 90
+            risk_level = "Low 🟢"
+        elif yield_prediction >= 4:
+            health_score = 60
+            risk_level = "Medium 🟡"
+        else:
+            health_score = 30
+            risk_level = "High 🔴"
+
+        # SAVE TO DB (UPDATED)
         save_prediction((
             st.session_state["user"],
             N, P, K,
@@ -127,25 +134,49 @@ if st.button("🚀 Predict AI Results"):
             ph,
             rainfall,
             float(yield_prediction),
-            str(crop_prediction)
+            str(crop_prediction),
+            int(health_score),
+            risk_level
         ))
 
-        # RESULTS
+        # =========================
+        # RESULTS UI
+        # =========================
         c1, c2 = st.columns(2)
         c1.metric("🌾 Yield", f"{yield_prediction:.2f}")
         c2.metric("🌱 Crop", crop_prediction)
 
-        # GAUGE
+        st.markdown("---")
+
+        c3, c4 = st.columns(2)
+        c3.metric("💚 Health Score", f"{health_score}/100")
+        c4.metric("⚠ Risk Level", risk_level)
+
+        # =========================
+        # GAUGE - YIELD
+        # =========================
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=float(yield_prediction),
             title={'text': "Yield Prediction"},
             gauge={'axis': {'range': [0, 10]}}
         ))
-
         st.plotly_chart(fig, use_container_width=True)
 
+        # =========================
+        # GAUGE - HEALTH
+        # =========================
+        fig2 = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=health_score,
+            title={'text': "System Health"},
+            gauge={'axis': {'range': [0, 100]}}
+        ))
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # =========================
         # ANALYSIS
+        # =========================
         if yield_prediction >= 7:
             st.success("Excellent conditions 🌟")
         elif yield_prediction >= 4:
@@ -155,7 +186,6 @@ if st.button("🚀 Predict AI Results"):
 
     except Exception as e:
         st.error(f"Error: {e}")
-
 
 # =========================
 # HISTORY

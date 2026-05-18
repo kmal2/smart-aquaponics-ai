@@ -28,7 +28,9 @@ def init_db():
         ph REAL,
         rainfall REAL,
         yield REAL,
-        crop TEXT
+        crop TEXT,
+        health_score INTEGER,
+        risk_level TEXT
     )
     """)
 
@@ -37,7 +39,7 @@ def init_db():
 
 
 # =========================
-# SAVE
+# SAVE PREDICTION
 # =========================
 def save_prediction(data):
     conn = get_connection()
@@ -47,9 +49,10 @@ def save_prediction(data):
         INSERT INTO predictions (
             username, n, p, k,
             temperature, humidity, ph, rainfall,
-            yield, crop
+            yield, crop,
+            health_score, risk_level
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, data)
 
     conn.commit()
