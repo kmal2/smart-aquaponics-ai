@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import plotly.graph_objects as go
+import plotly.express as px
 import os
 
 from iot_simulator import generate_sensor_data
@@ -17,71 +18,51 @@ from streamlit_autorefresh import st_autorefresh
 init_db()
 init_users()
 
-# =========================
-# PAGE CONFIG
-# =========================
 st.set_page_config(
     page_title="Smart Aquaponics AI",
     page_icon="🌱",
     layout="wide"
 )
 
+
 # =========================
 # LOAD MODELS
 # =========================
 @st.cache_resource
 def load_models():
-
-    required_files = [
-        "yield_model.pkl",
-        "crop_model.pkl",
-        "health_model.pkl"
-    ]
-
-    for f in required_files:
-        if not os.path.exists(f):
-            st.error(f"❌ Missing model file: {f}")
-            st.stop()
-
-    yield_model = joblib.load("yield_model.pkl")
-    crop_model = joblib.load("crop_model.pkl")
-    health_model = joblib.load("health_model.pkl")
-
-    return yield_model, crop_model, health_model
-
+    return (
+        joblib.load("yield_model.pkl"),
+        joblib.load("crop_model.pkl"),
+        joblib.load("health_model.pkl"),
+    )
 
 yield_model, crop_model, health_model = load_models()
 
 
 # =========================
-# LOGIN SYSTEM
+# LOGIN
 # =========================
 if "user" not in st.session_state:
 
-    st.title("🔐 Smart Aquaponics Login System")
+    st.title("🔐 Smart Aquaponics Login")
 
-    choice = st.radio("Choose Option", ["Login", "Register"])
-
+    mode = st.radio("Choose", ["Login", "Register"])
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
-    if choice == "Register":
-        if st.button("Create Account"):
-            if register_user(username, password):
-                st.success("✅ Account Created Successfully")
-            else:
-                st.error("❌ Username already exists")
+    if mode == "Register" and st.button("Create Account"):
+        if register_user(username, password):
+            st.success("Account Created")
+        else:
+            st.error("User exists")
 
-    if choice == "Login":
-        if st.button("Login"):
-            user = login_user(username, password)
-
-            if user:
-                st.session_state["user"] = username
-                st.success("✅ Login Successful")
-                st.rerun()
-            else:
-                st.error("❌ Invalid Credentials")
+    if mode == "Login" and st.button("Login"):
+        user = login_user(username, password)
+        if user:
+            st.session_state["user"] = username
+            st.rerun()
+        else:
+            st.error("Invalid login")
 
     st.stop()
 
@@ -92,32 +73,21 @@ if "user" not in st.session_state:
 st.sidebar.success(f"👤 Logged in as: {st.session_state['user']}")
 st.sidebar.title("🌱 Smart Aquaponics AI")
 
-
-# =========================
-# LIVE MODE
-# =========================
 if "live" not in st.session_state:
     st.session_state["live"] = False
 
-if st.sidebar.button("🔴 Toggle Live IoT Mode"):
+if st.sidebar.button("🔴 Toggle Live Mode"):
     st.session_state["live"] = not st.session_state["live"]
 
 if st.session_state["live"]:
-    st.sidebar.success("🔴 LIVE MODE ACTIVE")
-    st_autorefresh(interval=3000, key="live_refresh")
-
-
-# =========================
-# STORE LAST RESULT
-# =========================
-if "last_result" not in st.session_state:
-    st.session_state["last_result"] = None
+    st_autorefresh(interval=3000, key="refresh")
+    st.sidebar.success("LIVE MODE 🔴")
 
 
 # =========================
 # TITLE
 # =========================
-st.title("🌱💧 Smart Aquaponics Monitoring System")
+st.title("🌱💧 Smart Aquaponics FULL Dashboard")
 st.markdown("---")
 
 
@@ -125,7 +95,6 @@ st.markdown("---")
 # INPUTS
 # =========================
 if st.session_state["live"]:
-
     sensor = generate_sensor_data()
 
     N = sensor["N"]
@@ -136,34 +105,33 @@ if st.session_state["live"]:
     ph = sensor["ph"]
     rainfall = sensor["rainfall"]
 
-    st.info("🔴 LIVE IoT SENSOR MODE ACTIVE")
+    st.info("🔴 LIVE IoT ACTIVE")
 
 else:
+    st.sidebar.header("Inputs")
 
-    st.sidebar.header("🌿 Manual Inputs")
+    N = st.sidebar.slider("N", 0, 140, 50)
+    P = st.sidebar.slider("P", 0, 145, 50)
+    K = st.sidebar.slider("K", 0, 205, 50)
 
-    N = st.sidebar.slider("Nitrogen (N)", 0, 140, 50)
-    P = st.sidebar.slider("Phosphorus (P)", 0, 145, 50)
-    K = st.sidebar.slider("Potassium (K)", 0, 205, 50)
-
-    temperature = st.sidebar.slider("Temperature (°C)", 0.0, 50.0, 25.0)
-    humidity = st.sidebar.slider("Humidity (%)", 0.0, 100.0, 60.0)
-    ph = st.sidebar.slider("Water pH", 0.0, 14.0, 6.5)
-    rainfall = st.sidebar.slider("Water Flow", 0.0, 500.0, 100.0)
+    temperature = st.sidebar.slider("Temp", 0.0, 50.0, 25.0)
+    humidity = st.sidebar.slider("Humidity", 0.0, 100.0, 60.0)
+    ph = st.sidebar.slider("pH", 0.0, 14.0, 6.5)
+    rainfall = st.sidebar.slider("Rain", 0.0, 500.0, 100.0)
 
 
 # =========================
-# INPUT DATA
+# DATA
 # =========================
-input_data = pd.DataFrame({
-    "N": [N],
-    "P": [P],
-    "K": [K],
-    "temperature": [temperature],
-    "humidity": [humidity],
-    "ph": [ph],
-    "rainfall": [rainfall]
-})
+input_data = pd.DataFrame([{
+    "N": N,
+    "P": P,
+    "K": K,
+    "temperature": temperature,
+    "humidity": humidity,
+    "ph": ph,
+    "rainfall": rainfall
+}])
 
 try:
     input_data = input_data[yield_model.feature_names_in_]
@@ -172,146 +140,140 @@ except:
 
 
 # =========================
-# PREDICTION
+# PREDICT
 # =========================
-if st.button("🚀 Run Smart AI Analysis"):
+if st.button("🚀 Run AI Analysis"):
 
-    try:
-        yield_prediction = yield_model.predict(input_data)[0]
-        crop_prediction = crop_model.predict(input_data)[0]
-        health_prediction = health_model.predict(input_data)[0]
+    yield_pred = float(yield_model.predict(input_data)[0])
+    crop_pred = crop_model.predict(input_data)[0]
+    health_pred = health_model.predict(input_data)[0]
 
-        # =========================
-        # ML HEALTH MAPPING
-        # =========================
-        if health_prediction == "Healthy":
-            health_score = 90
-        elif health_prediction == "Warning":
-            health_score = 60
-        else:
-            health_score = 20
+    # =========================
+    # SMART LOGIC
+    # =========================
+    if health_pred == "Healthy":
+        score = 90
+        fish = "Safe 🐟"
+        water = "Good 💧"
+    elif health_pred == "Warning":
+        score = 60
+        fish = "Risk ⚠"
+        water = "Medium 💧"
+    else:
+        score = 25
+        fish = "Danger 🚨"
+        water = "Bad 💧"
 
-        # =========================
-        # SAVE TO DB
-        # =========================
-        save_prediction((
-            st.session_state["user"],
-            N, P, K,
-            temperature,
-            humidity,
-            ph,
-            rainfall,
-            float(yield_prediction),
-            str(crop_prediction),
-            int(health_score),
-            health_prediction
-        ))
+    plant = "Healthy 🌱" if score > 80 else "Moderate ⚠" if score > 50 else "Poor 🚨"
+    risk = "Low 🟢" if score == 90 else "Medium 🟡" if score == 60 else "High 🔴"
 
-        # =========================
-        # STORE RESULT
-        # =========================
-        st.session_state["last_result"] = {
-            "yield": float(yield_prediction),
-            "crop": str(crop_prediction),
-            "health": health_prediction,
-            "score": int(health_score)
-        }
+    # SAVE DB
+    save_prediction((
+        st.session_state["user"],
+        N, P, K,
+        temperature, humidity, ph, rainfall,
+        yield_pred,
+        str(crop_pred),
+        score,
+        risk
+    ))
 
-    except Exception as e:
-        st.error(f"Error: {e}")
+    # STORE RESULT
+    st.session_state["result"] = {
+        "yield": yield_pred,
+        "crop": crop_pred,
+        "health": health_pred,
+        "score": score,
+        "risk": risk,
+        "fish": fish,
+        "water": water,
+        "plant": plant
+    }
 
 
 # =========================
-# DISPLAY RESULTS + ANALYSIS
+# RESULT DISPLAY (IMPORTANT FIX)
 # =========================
-if st.session_state["last_result"] is not None:
+if "result" in st.session_state and st.session_state["result"]:
 
-    r = st.session_state["last_result"]
+    r = st.session_state["result"]
 
-    st.subheader("🌱 AI Results")
+    st.markdown("## 🌱 Full System Analysis")
 
-    c1, c2 = st.columns(2)
-    c1.metric("🌾 Yield", f"{r['yield']:.2f}")
-    c2.metric("🌱 Crop", r["crop"])
+    # =========================
+    # MAIN METRICS
+    # =========================
+    col1, col2 = st.columns(2)
+    col1.metric("🌾 Yield", f"{r['yield']:.2f}")
+    col2.metric("🌱 Crop", r["crop"])
 
     st.metric("🧠 Health Status", r["health"])
-    st.metric("💚 Health Score", f"{r['score']}/100")
+    st.metric("💚 Score", f"{r['score']}/100")
+    st.metric("⚠ Risk", r["risk"])
 
     st.markdown("---")
 
     # =========================
-    # 💧 WATER ANALYSIS
+    # ENVIRONMENT STATUS
     # =========================
-    water_status = (
-        "Good 🟢" if 6 <= ph <= 7.5
-        else "Moderate 🟡" if 5 <= ph < 6 or 7.5 < ph <= 8
-        else "Danger 🔴"
-    )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("💧 Water Status", r["water"])
+    c2.metric("🐟 Fish Status", r["fish"])
+    c3.metric("🌱 Plant Status", r["plant"])
+
+    st.markdown("---")
 
     # =========================
-    # 🐟 FISH ANALYSIS
+    # GAUGE CHART
     # =========================
-    fish_status = (
-        "Safe 🟢" if 20 <= temperature <= 30
-        else "Warning 🟡" if 15 <= temperature < 20 or 30 < temperature <= 35
-        else "Critical 🔴"
-    )
+    fig = go.Figure()
 
-    # =========================
-    # 🌱 PLANT ANALYSIS
-    # =========================
-    plant_status = (
-        "Healthy 🟢" if r["score"] >= 80
-        else "Moderate 🟡" if r["score"] >= 50
-        else "Poor 🔴"
-    )
+    fig.add_trace(go.Indicator(
+        mode="gauge+number",
+        value=r["yield"],
+        title={"text": "🌾 Yield Prediction"},
+        gauge={
+            "axis": {"range": [0, max(10, r["yield"] + 2)]},
+            "bar": {"color": "green"},
+            "steps": [
+                {"range": [0, 3], "color": "red"},
+                {"range": [3, 7], "color": "yellow"},
+                {"range": [7, 10], "color": "lightgreen"},
+            ],
+        }
+    ))
 
-    # =========================
-    # 🚨 SYSTEM RISK
-    # =========================
-    def risk(x):
-        return {"Low 🟢": 1, "Medium 🟡": 2, "High 🔴": 3}.get(x.split()[0] + " " + x.split()[1], 2)
+    st.plotly_chart(fig, use_container_width=True)
 
-    total_risk = (
-        risk(water_status) +
-        risk(fish_status) +
-        risk(plant_status)
-    )
-
-    system_status = (
-        "Excellent 🟢" if total_risk <= 3
-        else "Stable 🟡" if total_risk <= 5
-        else "Critical 🔴"
-    )
-
-    # =========================
-    # DISPLAY ANALYSIS
-    # =========================
-    st.subheader("🧠 Smart Analysis")
-
-    s1, s2, s3 = st.columns(3)
-
-    s1.metric("💧 Water", water_status)
-    s2.metric("🐟 Fish", fish_status)
-    s3.metric("🌱 Plant", plant_status)
-
-    st.metric("🚨 System Status", system_status)
+    st.markdown("---")
 
 
 # =========================
-# HISTORY
+# HISTORY + ANALYTICS
 # =========================
-st.markdown("---")
-st.subheader("📊 History")
+history = load_history()
 
-try:
-    history = load_history()
+if history is not None and not history.empty:
 
-    if history is not None and not history.empty:
-        user_history = history[history["username"] == st.session_state["user"]]
-        st.dataframe(user_history, use_container_width=True)
-    else:
-        st.info("No history yet")
+    user_history = history[history["username"] == st.session_state["user"]]
 
-except Exception as e:
-    st.warning(f"History error: {e}")
+    st.markdown("## 📊 Analytics Dashboard")
+
+    # Yield Trend
+    st.subheader("🌾 Yield Trend")
+    st.plotly_chart(px.line(user_history, y="yield", title="Yield Over Time"), use_container_width=True)
+
+    # Risk Pie (FIXED COLUMN NAME)
+    st.subheader("⚠ Risk Distribution")
+    st.plotly_chart(px.pie(user_history, names="risk_level", title="Risk Levels"), use_container_width=True)
+
+    # Crop Distribution
+    st.subheader("🌱 Crop Analysis")
+    st.plotly_chart(px.histogram(user_history, x="crop", title="Crop Distribution"), use_container_width=True)
+
+    # FULL TABLE
+    st.subheader("📋 Full History")
+    st.dataframe(user_history, use_container_width=True)
+
+else:
+    st.info("No history yet")
