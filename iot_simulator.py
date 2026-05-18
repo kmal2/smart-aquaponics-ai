@@ -1,25 +1,29 @@
-import requests
 import random
 import time
 
-url = "http://127.0.0.1:5000/predict"
+def generate_sensor_data():
 
-while True:
+    return {
 
-    data = {
-        "N": random.randint(60, 100),
-        "P": random.randint(30, 60),
-        "K": random.randint(30, 60),
-        "temperature": round(random.uniform(18, 35), 2),
-        "humidity": round(random.uniform(60, 90), 2),
-        "ph": round(random.uniform(5.5, 7.5), 2),
-        "rainfall": random.randint(100, 300)
+        "N": random.randint(20, 120),
+        "P": random.randint(20, 120),
+        "K": random.randint(20, 180),
+
+        "temperature": round(random.uniform(18, 40), 1),
+        "humidity": round(random.uniform(30, 95), 1),
+        "ph": round(random.uniform(5.0, 8.5), 1),
+        "rainfall": round(random.uniform(50, 300), 1)
+
     }
 
-    response = requests.post(url, json=data)
 
-    print("Sent Data:", data)
-    print("Response:", response.json())
-    print("-" * 40)
+# test loop
+if __name__ == "__main__":
 
-    time.sleep(3600)  # Simulate hourly data generation
+    while True:
+
+        data = generate_sensor_data()
+
+        print(data)
+
+        time.sleep(2)
